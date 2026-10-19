@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { 
   Search, 
   Sparkles, 
@@ -15,11 +17,15 @@ import {
 import { api } from '../services/api.js';
 import { RecipeCard } from '../components/recipes/RecipeCard.jsx';
 
+// Register ScrollTrigger once before usage as per GSAP best practices
+gsap.registerPlugin(ScrollTrigger);
+
 export const HomePage = ({ setView, onSelectRecipe, onSelectCuisine, setSearchQuery }) => {
   const [featuredData, setFeaturedData] = useState({ editorPicks: [], seasonal: [], trending: [] });
   const [cuisines, setCuisines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [heroSearch, setHeroSearch] = useState('');
+  const containerRef = useRef(null);
 
   useEffect(() => {
     const loadHomeData = async () => {
@@ -40,6 +46,124 @@ export const HomePage = ({ setView, onSelectRecipe, onSelectCuisine, setSearchQu
     loadHomeData();
   }, []);
 
+  // GSAP Core & ScrollTrigger integration
+  useEffect(() => {
+    if (loading) return;
+
+    const mm = gsap.matchMedia();
+
+    mm.add(
+      {
+        isDesktop: "(min-width: 640px)",
+        reduceMotion: "(prefers-reduced-motion: reduce)"
+      },
+      (context) => {
+        const { reduceMotion } = context.conditions;
+        
+        // Strict adherence to prefers-reduced-motion
+        if (reduceMotion) {
+          gsap.set(
+            ".hero-element, .ai-pantry-banner, .cuisine-item-card, .recipe-card-reveal, .section-heading-reveal", 
+            { autoAlpha: 1, y: 0 }
+          );
+          return;
+        }
+
+        // 1. Initial Hero Intro Animation
+        gsap.from(".hero-element", {
+          y: 25,
+          autoAlpha: 0,
+          duration: 0.8,
+          stagger: 0.12,
+          ease: "power2.out"
+        });
+
+        // 2. Hero Background Parallax Scrub (ease: "none" required for scrub sync)
+        gsap.to(".hero-bg-img", {
+          yPercent: 18,
+          ease: "none",
+          scrollTrigger: {
+            trigger: ".hero-section",
+            start: "top top",
+            end: "bottom top",
+            scrub: 1
+          }
+        });
+
+        // 3. AI Pantry Banner Entrance
+        gsap.from(".ai-pantry-banner", {
+          y: 35,
+          autoAlpha: 0,
+          duration: 0.8,
+          ease: "power2.out",
+          scrollTrigger: {
+            trigger: ".ai-pantry-banner",
+            start: "top 85%",
+            toggleActions: "play none none none"
+          }
+        });
+
+        // Ambient banner background image parallax
+        gsap.to(".ai-pantry-banner-bg", {
+          yPercent: 15,
+          ease: "none",
+          scrollTrigger: {
+            trigger: ".ai-pantry-banner",
+            start: "top bottom",
+            end: "bottom top",
+            scrub: 1
+          }
+        });
+
+        // 4. Section Headings Batch Reveal
+        ScrollTrigger.batch(".section-heading-reveal", {
+          interval: 0.1,
+          onEnter: (batch) => gsap.fromTo(
+            batch,
+            { autoAlpha: 0, y: 20 },
+            { autoAlpha: 1, y: 0, duration: 0.5, stagger: 0.08, ease: "power2.out", overwrite: true }
+          ),
+          start: "top 90%"
+        });
+
+        // 5. Cuisines Batch Reveal
+        ScrollTrigger.batch(".cuisine-item-card", {
+          interval: 0.08,
+          batchMax: 6,
+          onEnter: (batch) => gsap.fromTo(
+            batch,
+            { autoAlpha: 0, y: 25 },
+            { autoAlpha: 1, y: 0, duration: 0.5, stagger: 0.08, ease: "power2.out", overwrite: true }
+          ),
+          start: "top 90%"
+        });
+
+        // 6. Recipe Cards Staggered Batch Reveal
+        ScrollTrigger.batch(".recipe-card-reveal", {
+          interval: 0.1,
+          batchMax: 3,
+          onEnter: (batch) => gsap.fromTo(
+            batch,
+            { autoAlpha: 0, y: 35 },
+            { autoAlpha: 1, y: 0, duration: 0.6, stagger: 0.12, ease: "power2.out", overwrite: true }
+          ),
+          start: "top 90%"
+        });
+      },
+      containerRef
+    );
+
+    // Refresh ScrollTrigger positions after content settles in DOM
+    const refreshTimer = setTimeout(() => {
+      ScrollTrigger.refresh();
+    }, 120);
+
+    return () => {
+      clearTimeout(refreshTimer);
+      mm.revert();
+    };
+  }, [loading]);
+
   const handleHeroSearchSubmit = (e) => {
     e.preventDefault();
     if (heroSearch.trim()) {
@@ -49,34 +173,34 @@ export const HomePage = ({ setView, onSelectRecipe, onSelectCuisine, setSearchQu
   };
 
   return (
-    <div className="space-y-20 pb-20">
+    <div ref={containerRef} className="space-y-20 pb-20">
       
       {/* Editorial Hero Section */}
-      <section className="relative min-h-[580px] lg:min-h-[640px] flex items-center justify-center bg-cream-100 overflow-hidden border-b border-cream-200">
+      <section className="hero-section relative min-h-[580px] lg:min-h-[640px] flex items-center justify-center bg-cream-100 overflow-hidden border-b border-cream-200">
         
-        {/* Ambient Food Photography Background Overlay */}
-        <div className="absolute inset-0 z-0">
+        {/* Ambient Food Photography Background Overlay with ScrollTrigger Parallax */}
+        <div className="absolute inset-0 z-0 overflow-hidden">
           <img
             src="https://images.unsplash.com/photo-1543353071-10c8ba85a904?auto=format&fit=crop&w=2000&q=85"
             alt="Artisanal culinary feast with fresh ingredients and olive oil"
-            className="w-full h-full object-cover opacity-25 filter saturate-150 scale-105 transition-transform duration-1000 ease-out"
+            className="hero-bg-img w-full h-full object-cover opacity-25 filter saturate-150 scale-110"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-cream-50 via-cream-50/70 to-cream-50/40" />
         </div>
 
         {/* Hero Content */}
         <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center pt-8 pb-16 space-y-6">
-          <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-olive-100/90 border border-olive-200 text-olive-800 text-xs font-semibold tracking-wider uppercase shadow-soft">
+          <div className="hero-element inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-olive-100/90 border border-olive-200 text-olive-800 text-xs font-semibold tracking-wider uppercase shadow-soft">
             <Sparkles className="w-3.5 h-3.5 text-olive-600" />
             <span>The International Culinary Journal & AI Kitchen</span>
           </div>
 
-          <h1 className="font-serif text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-charcoal-900 leading-[1.1]">
+          <h1 className="hero-element font-serif text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-charcoal-900 leading-[1.1]">
             Discover your next <br />
             <span className="italic font-normal font-display text-olive-800">favorite meal.</span>
           </h1>
 
-          <p className="max-w-2xl mx-auto text-base sm:text-lg text-charcoal-600 font-light leading-relaxed">
+          <p className="hero-element max-w-2xl mx-auto text-base sm:text-lg text-charcoal-600 font-light leading-relaxed">
             Authentic, verified recipes from 11+ world cuisines. Match what's in your pantry using our intelligent AI recipe engine or explore masterclass classics.
           </p>
 
@@ -122,12 +246,12 @@ export const HomePage = ({ setView, onSelectRecipe, onSelectCuisine, setSearchQu
 
       {/* Prominent AI Pantry Banner */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-olive-800 via-olive-900 to-charcoal-900 text-cream-50 p-8 sm:p-12 shadow-lifted">
-          <div className="absolute right-0 top-0 bottom-0 w-1/3 opacity-20 pointer-events-none hidden md:block">
+        <div className="ai-pantry-banner relative rounded-3xl overflow-hidden bg-gradient-to-r from-olive-800 via-olive-900 to-charcoal-900 text-cream-50 p-8 sm:p-12 shadow-lifted">
+          <div className="absolute right-0 top-0 bottom-0 w-1/3 opacity-20 pointer-events-none hidden md:block overflow-hidden">
             <img
               src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80"
               alt="Culinary ingredients"
-              className="w-full h-full object-cover"
+              className="ai-pantry-banner-bg w-full h-full object-cover scale-110"
             />
           </div>
 
@@ -167,7 +291,7 @@ export const HomePage = ({ setView, onSelectRecipe, onSelectCuisine, setSearchQu
 
       {/* Popular International Cuisines */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-        <div className="flex items-end justify-between border-b border-cream-200 pb-4">
+        <div className="section-heading-reveal flex items-end justify-between border-b border-cream-200 pb-4">
           <div>
             <span className="text-xs font-bold uppercase tracking-widest text-olive-700">Global Gastronomy</span>
             <h2 className="font-serif text-2xl sm:text-3xl font-bold text-charcoal-900 mt-1">
@@ -191,7 +315,7 @@ export const HomePage = ({ setView, onSelectRecipe, onSelectCuisine, setSearchQu
                 if (onSelectCuisine) onSelectCuisine(c.name);
                 setView('explore');
               }}
-              className="group relative rounded-2xl overflow-hidden aspect-[4/5] bg-cream-200 border border-cream-300 shadow-soft cursor-pointer hover:shadow-editorial transition-all"
+              className="cuisine-item-card group relative rounded-2xl overflow-hidden aspect-[4/5] bg-cream-200 border border-cream-300 shadow-soft cursor-pointer hover:shadow-editorial transition-all"
             >
               <img
                 src={c.image}
@@ -215,7 +339,7 @@ export const HomePage = ({ setView, onSelectRecipe, onSelectCuisine, setSearchQu
 
       {/* Editor's Picks Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-        <div className="flex items-end justify-between border-b border-cream-200 pb-4">
+        <div className="section-heading-reveal flex items-end justify-between border-b border-cream-200 pb-4">
           <div>
             <div className="flex items-center space-x-2 text-xs font-bold uppercase tracking-widest text-terracotta-600">
               <Award className="w-4 h-4" />
@@ -236,11 +360,12 @@ export const HomePage = ({ setView, onSelectRecipe, onSelectCuisine, setSearchQu
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {featuredData.editorPicks.slice(0, 3).map((recipe) => (
-            <RecipeCard
-              key={recipe._id}
-              recipe={recipe}
-              onSelect={onSelectRecipe}
-            />
+            <div key={recipe._id} className="recipe-card-reveal h-full">
+              <RecipeCard
+                recipe={recipe}
+                onSelect={onSelectRecipe}
+              />
+            </div>
           ))}
         </div>
       </section>
@@ -248,7 +373,7 @@ export const HomePage = ({ setView, onSelectRecipe, onSelectCuisine, setSearchQu
       {/* Seasonal Recommendations */}
       <section className="bg-cream-100/60 py-16 border-y border-cream-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-          <div className="flex items-end justify-between border-b border-cream-200 pb-4">
+          <div className="section-heading-reveal flex items-end justify-between border-b border-cream-200 pb-4">
             <div>
               <div className="flex items-center space-x-2 text-xs font-bold uppercase tracking-widest text-olive-700">
                 <Calendar className="w-4 h-4" />
@@ -269,11 +394,12 @@ export const HomePage = ({ setView, onSelectRecipe, onSelectCuisine, setSearchQu
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {featuredData.seasonal.slice(0, 3).map((recipe) => (
-              <RecipeCard
-                key={recipe._id}
-                recipe={recipe}
-                onSelect={onSelectRecipe}
-              />
+              <div key={recipe._id} className="recipe-card-reveal h-full">
+                <RecipeCard
+                  recipe={recipe}
+                  onSelect={onSelectRecipe}
+                />
+              </div>
             ))}
           </div>
         </div>
@@ -281,7 +407,7 @@ export const HomePage = ({ setView, onSelectRecipe, onSelectCuisine, setSearchQu
 
       {/* Trending & Highest Rated Recipes */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-        <div className="flex items-end justify-between border-b border-cream-200 pb-4">
+        <div className="section-heading-reveal flex items-end justify-between border-b border-cream-200 pb-4">
           <div>
             <div className="flex items-center space-x-2 text-xs font-bold uppercase tracking-widest text-amber-600">
               <Flame className="w-4 h-4 text-amber-600" />
@@ -302,11 +428,12 @@ export const HomePage = ({ setView, onSelectRecipe, onSelectCuisine, setSearchQu
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {featuredData.trending.slice(0, 3).map((recipe) => (
-            <RecipeCard
-              key={recipe._id}
-              recipe={recipe}
-              onSelect={onSelectRecipe}
-            />
+            <div key={recipe._id} className="recipe-card-reveal h-full">
+              <RecipeCard
+                recipe={recipe}
+                onSelect={onSelectRecipe}
+              />
+            </div>
           ))}
         </div>
       </section>

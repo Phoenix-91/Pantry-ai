@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { 
   Search, 
   Filter, 
@@ -12,6 +14,8 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api.js';
 import { RecipeCard } from '../components/recipes/RecipeCard.jsx';
+
+gsap.registerPlugin(ScrollTrigger);
 
 export const ExplorePage = ({ onSelectRecipe, initialCuisine = 'All', initialSearch = '' }) => {
   const [recipes, setRecipes] = useState([]);
@@ -67,6 +71,47 @@ export const ExplorePage = ({ onSelectRecipe, initialCuisine = 'All', initialSea
   useEffect(() => {
     fetchRecipes();
   }, [cuisine, dietary, difficulty, mealType, maxTime, sort, page]);
+
+  // GSAP ScrollTrigger batch reveal for filtered recipes
+  useEffect(() => {
+    if (loading || recipes.length === 0) return;
+
+    const mm = gsap.matchMedia();
+
+    mm.add(
+      {
+        isDesktop: "(min-width: 640px)",
+        reduceMotion: "(prefers-reduced-motion: reduce)"
+      },
+      (context) => {
+        const { reduceMotion } = context.conditions;
+        if (reduceMotion) {
+          gsap.set(".explore-card-reveal", { autoAlpha: 1, y: 0 });
+          return;
+        }
+
+        ScrollTrigger.batch(".explore-card-reveal", {
+          interval: 0.08,
+          batchMax: 4,
+          onEnter: (batch) => gsap.fromTo(
+            batch,
+            { autoAlpha: 0, y: 25 },
+            { autoAlpha: 1, y: 0, duration: 0.5, stagger: 0.08, ease: "power2.out", overwrite: true }
+          ),
+          start: "top 90%"
+        });
+      }
+    );
+
+    const refreshTimer = setTimeout(() => {
+      ScrollTrigger.refresh();
+    }, 120);
+
+    return () => {
+      clearTimeout(refreshTimer);
+      mm.revert();
+    };
+  }, [loading, recipes]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -281,11 +326,12 @@ export const ExplorePage = ({ onSelectRecipe, initialCuisine = 'All', initialSea
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {recipes.map((recipe) => (
-            <RecipeCard
-              key={recipe._id}
-              recipe={recipe}
-              onSelect={onSelectRecipe}
-            />
+            <div key={recipe._id} className="explore-card-reveal h-full">
+              <RecipeCard
+                recipe={recipe}
+                onSelect={onSelectRecipe}
+              />
+            </div>
           ))}
         </div>
       )}

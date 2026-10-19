@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { 
   Clock, 
   Users, 
@@ -25,6 +27,8 @@ import { useShoppingList } from '../context/ShoppingListContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { CookingModeModal } from '../components/recipes/CookingModeModal.jsx';
 import { RecipeCard } from '../components/recipes/RecipeCard.jsx';
+
+gsap.registerPlugin(ScrollTrigger);
 
 export const RecipeDetailPage = ({ slug, onBack, onSelectRecipe }) => {
   const [recipe, setRecipe] = useState(null);
@@ -80,6 +84,60 @@ export const RecipeDetailPage = ({ slug, onBack, onSelectRecipe }) => {
 
     if (slug) loadRecipe();
   }, [slug]);
+
+  // GSAP ScrollTrigger for Recipe Detail Page
+  useEffect(() => {
+    if (!recipe) return;
+
+    const mm = gsap.matchMedia();
+
+    mm.add(
+      {
+        isDesktop: "(min-width: 640px)",
+        reduceMotion: "(prefers-reduced-motion: reduce)"
+      },
+      (context) => {
+        const { reduceMotion } = context.conditions;
+        if (reduceMotion) {
+          gsap.set(".recipe-hero-image, .related-card-reveal", { autoAlpha: 1, y: 0 });
+          return;
+        }
+
+        // 1. Recipe Hero Image Scrubbed Parallax
+        gsap.to(".recipe-hero-image", {
+          yPercent: 12,
+          ease: "none",
+          scrollTrigger: {
+            trigger: ".recipe-hero-container",
+            start: "top top",
+            end: "bottom top",
+            scrub: 1
+          }
+        });
+
+        // 2. Related Recipes Batch Reveal on Scroll
+        ScrollTrigger.batch(".related-card-reveal", {
+          interval: 0.1,
+          batchMax: 4,
+          onEnter: (batch) => gsap.fromTo(
+            batch,
+            { autoAlpha: 0, y: 25 },
+            { autoAlpha: 1, y: 0, duration: 0.5, stagger: 0.08, ease: "power2.out", overwrite: true }
+          ),
+          start: "top 90%"
+        });
+      }
+    );
+
+    const refreshTimer = setTimeout(() => {
+      ScrollTrigger.refresh();
+    }, 120);
+
+    return () => {
+      clearTimeout(refreshTimer);
+      mm.revert();
+    };
+  }, [recipe]);
 
   if (loading) {
     return (
@@ -225,11 +283,11 @@ export const RecipeDetailPage = ({ slug, onBack, onSelectRecipe }) => {
       </div>
 
       {/* Hero Visual Section */}
-      <div className="relative rounded-3xl overflow-hidden aspect-[16/9] md:aspect-[21/9] bg-cream-200 shadow-lifted border border-cream-200">
+      <div className="recipe-hero-container relative rounded-3xl overflow-hidden aspect-[16/9] md:aspect-[21/9] bg-cream-200 shadow-lifted border border-cream-200">
         <img
           src={recipe.image?.url}
           alt={recipe.title}
-          className="w-full h-full object-cover"
+          className="recipe-hero-image w-full h-full object-cover scale-110"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-charcoal-900/80 via-charcoal-900/20 to-transparent" />
         
@@ -608,11 +666,12 @@ export const RecipeDetailPage = ({ slug, onBack, onSelectRecipe }) => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {related.map((relRecipe) => (
-              <RecipeCard
-                key={relRecipe._id}
-                recipe={relRecipe}
-                onSelect={onSelectRecipe}
-              />
+              <div key={relRecipe._id} className="related-card-reveal h-full">
+                <RecipeCard
+                  recipe={relRecipe}
+                  onSelect={onSelectRecipe}
+                />
+              </div>
             ))}
           </div>
         </section>

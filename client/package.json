@@ -12,6 +12,7 @@
   "dependencies": {
     "autoprefixer": "^10.6.1",
     "framer-motion": "^14.4.0",
+    "gsap": "^3.15.0",
     "lucide-react": "^1.59.0",
     "postcss": "^8.5.31",
     "react": "^19.3.1",
