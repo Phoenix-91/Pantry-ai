@@ -1,0 +1,13 @@
+{
+  "name": "savorcraft-recipe-book",
+  "version": "1.0.0",
+  "description": "Professional AI-Powered Recipe Book — MERN Stack in pure JavaScript",
+  "scripts": {
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "seed": "npm --prefix server run seed",
+    "test": "npm --prefix server run test",
+    "build:client": "npm --prefix client run build"
+  },
+  "keywords": ["recipe", "mern", "ai", "javascript", "react", "express", "mongodb"]
+}
